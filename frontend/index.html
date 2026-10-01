@@ -7,36 +7,55 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
-    <h1>EVE Healthcare</h1>
-    <div id="who" hidden><span id="email"></span> <button id="logout" class="ghost">Log out</button></div>
-  </header>
-  <main>
-    <section id="auth" class="card narrow">
-      <div class="tabs">
-        <button type="button" data-mode="login" class="active">Log in</button>
-        <button type="button" data-mode="signup">Sign up</button>
+  <header class="topbar">
+    <div class="wrap bar">
+      <div class="brand"><span class="logo">+</span>EVE Healthcare</div>
+      <div id="who" class="who" hidden>
+        <span id="email"></span>
+        <button id="logout" class="btn ghost sm" type="button">Log out</button>
       </div>
-      <form id="authForm">
-        <label id="nameRow" hidden>Full name <input name="full_name" autocomplete="name"></label>
-        <label>Email <input name="email" type="email" required autocomplete="email"></label>
-        <label>Password <input name="password" type="password" required autocomplete="current-password">
-          <small id="pwHint" hidden>8+ characters, at least one letter and one digit.</small></label>
-        <button type="submit" id="authSubmit">Log in</button>
-      </form>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section id="auth" class="auth">
+      <div class="auth-card">
+        <h1>Welcome</h1>
+        <p class="sub">Book diagnostic tests at a center near you.</p>
+        <div class="tabs">
+          <button type="button" data-mode="login" class="active">Log in</button>
+          <button type="button" data-mode="signup">Sign up</button>
+        </div>
+        <form id="authForm">
+          <label id="nameRow" hidden>Full name <input name="full_name" autocomplete="name"></label>
+          <label>Email <input name="email" type="email" required autocomplete="email"></label>
+          <label>Password <input name="password" type="password" required autocomplete="current-password"></label>
+          <p id="pwHint" class="hint" hidden>Use 8+ characters with at least one letter and one digit.</p>
+          <button id="authSubmit" class="btn block" type="submit">Log in</button>
+        </form>
+      </div>
     </section>
 
     <div id="app" hidden>
-      <section>
-        <h2>Diagnostic centers</h2>
-        <div id="centers" class="grid"></div>
+      <section class="block">
+        <div class="block-head">
+          <h2>Diagnostic centers</h2>
+          <p class="sub">Pick a test to book. Each center sets its own price.</p>
+        </div>
+        <div id="centers" class="centers"></div>
       </section>
-      <section>
-        <h2>My bookings</h2>
-        <div id="bookings"></div>
+
+      <section class="block">
+        <div class="block-head">
+          <h2>My bookings <span id="count" class="pill">0</span></h2>
+          <p class="sub">Pay a pending booking to confirm it. You can cancel until it is final.</p>
+        </div>
+        <div id="bookings" class="list"></div>
       </section>
     </div>
   </main>
+
+  <dialog id="dlg"></dialog>
   <div id="toast" role="status"></div>
   <script src="app.js"></script>
 </body>

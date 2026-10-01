@@ -8,13 +8,13 @@ const when = (iso) => new Date(iso).toLocaleString([], { dateStyle: "medium", ti
 function h(tag, props = {}, ...kids) {
   const el = document.createElement(tag);
   for (const [k, v] of Object.entries(props)) {
-    if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
-    else if (k === "class") el.className = v;
+    if (k === "class") el.className = v;
     else el.setAttribute(k, v);
   }
   el.append(...kids.flat().filter((x) => x != null));
   return el;
 }
+const on = (el, fn) => (el.addEventListener("click", fn), el);
 
 let toastTimer;
 function toast(text, isError = false) {
@@ -54,7 +54,7 @@ async function run(btn, fn) {
 // ---------- auth ----------
 let mode = "login";
 document.querySelectorAll(".tabs button").forEach((b) =>
-  b.addEventListener("click", () => {
+  on(b, () => {
     mode = b.dataset.mode;
     document.querySelectorAll(".tabs button").forEach((x) => x.classList.toggle("active", x === b));
     $("#nameRow").hidden = $("#pwHint").hidden = mode !== "signup";
@@ -84,7 +84,7 @@ function logout() {
   $("#auth").hidden = false;
   $("#app").hidden = $("#who").hidden = true;
 }
-$("#logout").addEventListener("click", logout);
+on($("#logout"), logout);
 
 // ---------- data ----------
 let centers = [];   // each: {id, name, location, tests: [{id, name, price}]}
@@ -118,73 +118,84 @@ async function start() {
 
 // ---------- centers ----------
 function renderCenters() {
-  const box = $("#centers");
-  if (!centers.length) {
-    box.replaceChildren(h("p", { class: "muted" }, "No centers yet. Run: python -m app.scripts.seed"));
-    return;
-  }
-  box.replaceChildren(...centers.map(centerCard));
+  $("#centers").replaceChildren(...(centers.length
+    ? centers.map(centerCard)
+    : [h("p", { class: "placeholder" }, "No centers yet. Run: python -m app.scripts.seed")]));
 }
 
 function centerCard(c) {
-  return h("div", { class: "card" },
-    h("strong", {}, c.name), h("div", { class: "muted" }, c.location),
-    c.tests.length ? c.tests.map((t) => testRow(c, t)) : h("p", { class: "muted" }, "No tests offered."));
+  return h("article", { class: "card" },
+    h("div", { class: "card-head" }, h("strong", {}, c.name), h("span", { class: "sub" }, c.location)),
+    c.tests.length
+      ? c.tests.map((t) => h("div", { class: "test" },
+          h("span", { class: "t-name" }, t.name),
+          h("span", { class: "t-price" }, money.format(t.price)),
+          on(h("button", { class: "btn ghost sm", type: "button" }, "Book"), () => openBooking(c, t))))
+      : h("p", { class: "empty" }, "No tests offered yet."));
 }
 
-function testRow(center, test) {
-  const wrap = h("div");
-  const bookBtn = h("button", { class: "ghost" }, "Book");
-  wrap.append(h("div", { class: "test" },
-    h("span", {}, test.name), h("span", { class: "price" }, money.format(test.price)), bookBtn));
-  bookBtn.addEventListener("click", () => {
-    if (wrap.querySelector(".bookform")) return wrap.querySelector(".bookform").remove();
-    const input = h("input", { type: "datetime-local", required: "" });
-    const ok = h("button", {}, "Confirm");
-    ok.addEventListener("click", () => {
-      if (!input.value) return toast("Pick a date and time", true);
-      run(ok, async () => {
-        // datetime-local is local time without a zone; the API requires a timezone.
-        const appointment_at = new Date(input.value).toISOString();
-        const b = await api("/bookings", {
-          method: "POST", body: { center_id: center.id, test_id: test.id, appointment_at },
-        });
-        toast(`Booking #${b.id} created (amount ${money.format(b.amount)})`);
-        wrap.querySelector(".bookform").remove();
-        await loadBookings();
+// ---------- booking dialog ----------
+const dlg = $("#dlg");
+dlg.addEventListener("click", (e) => { if (e.target === dlg) dlg.close(); }); // click on backdrop
+
+// Value for <input type="datetime-local" min=...> (local time, minute precision).
+function localNow() {
+  return new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+
+function openBooking(center, test) {
+  const input = h("input", { type: "datetime-local", min: localNow(), required: "" });
+  const confirm = h("button", { class: "btn", type: "button" }, "Confirm booking");
+  const close = on(h("button", { class: "btn ghost", type: "button" }, "Cancel"), () => dlg.close());
+
+  on(confirm, () => {
+    if (!input.value) return toast("Pick a date and time", true);
+    run(confirm, async () => {
+      // datetime-local is local time without a zone; the API requires a timezone.
+      const appointment_at = new Date(input.value).toISOString();
+      const b = await api("/bookings", {
+        method: "POST", body: { center_id: center.id, test_id: test.id, appointment_at },
       });
+      dlg.close();
+      toast(`Booking #${b.id} created for ${money.format(b.amount)}`);
+      await loadBookings();
     });
-    wrap.append(h("div", { class: "bookform" }, input, ok));
   });
-  return wrap;
+
+  dlg.replaceChildren(h("div", { class: "dlg-body" },
+    h("h3", {}, `Book ${test.name}`),
+    h("p", { class: "sub" }, `${center.name} - ${center.location}`),
+    h("div", { class: "summary" }, h("span", {}, "Price"), h("strong", {}, money.format(test.price))),
+    h("label", {}, "Appointment time", input),
+    h("div", { class: "dlg-actions" }, close, confirm)));
+  dlg.showModal();
 }
 
 // ---------- bookings ----------
 function renderBookings(rows) {
-  const box = $("#bookings");
-  if (!rows.length) return box.replaceChildren(h("p", { class: "muted" }, "No bookings yet."));
-  box.replaceChildren(h("table", {},
-    h("thead", {}, h("tr", {}, ...["#", "Test / Center", "Appointment", "Amount", "Status", ""].map((x) => h("th", {}, x)))),
-    h("tbody", {}, ...rows.map(bookingRow))));
+  $("#count").textContent = rows.length;
+  $("#bookings").replaceChildren(...(rows.length
+    ? rows.map(bookingItem)
+    : [h("p", { class: "placeholder" }, "No bookings yet. Choose a test above to get started.")]));
 }
 
-function bookingRow(b) {
-  const actions = h("td", { class: "actions" });
-  if (b.status === "PENDING") actions.append(action("Pay", "", () => pay(b)));
-  if (b.status === "PENDING" || b.status === "CONFIRMED") actions.append(action("Cancel", "danger", () => cancel(b)));
-  return h("tr", {},
-    h("td", {}, String(b.id)),
-    h("td", {}, `${names.test[b.test_id] || "Test " + b.test_id} @ ${names.center[b.center_id] || "Center " + b.center_id}`),
-    h("td", {}, when(b.appointment_at)),
-    h("td", { class: "price" }, money.format(b.amount)),
-    h("td", {}, h("span", { class: `badge ${b.status}` }, b.status)),
+function bookingItem(b) {
+  const actions = h("div", { class: "b-actions" });
+  const act = (label, cls, fn) => {
+    const btn = h("button", { class: `btn sm ${cls}`, type: "button" }, label);
+    actions.append(on(btn, () => run(btn, fn)));
+  };
+  if (b.status === "PENDING") act("Pay now", "", () => pay(b));
+  if (b.status === "PENDING" || b.status === "CONFIRMED") act("Cancel", "danger", () => cancel(b));
+
+  return h("article", { class: "booking" },
+    h("div", { class: "b-main" },
+      h("strong", {}, names.test[b.test_id] || `Test ${b.test_id}`),
+      h("span", { class: "sub" },
+        `${names.center[b.center_id] || "Center " + b.center_id} - ${when(b.appointment_at)} - #${b.id}`)),
+    h("div", { class: "b-amount" }, money.format(b.amount)),
+    h("div", { class: "b-status" }, h("span", { class: `badge ${b.status}` }, b.status)),
     actions);
-}
-
-function action(label, cls, fn) {
-  const btn = h("button", { class: cls || "ghost" }, label);
-  btn.addEventListener("click", () => run(btn, fn));
-  return btn;
 }
 
 async function pay(b) {
