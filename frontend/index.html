@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EVE Healthcare - Book a diagnostic test</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>EVE Healthcare</h1>
+    <div id="who" hidden><span id="email"></span> <button id="logout" class="ghost">Log out</button></div>
+  </header>
+  <main>
+    <section id="auth" class="card narrow">
+      <div class="tabs">
+        <button type="button" data-mode="login" class="active">Log in</button>
+        <button type="button" data-mode="signup">Sign up</button>
+      </div>
+      <form id="authForm">
+        <label id="nameRow" hidden>Full name <input name="full_name" autocomplete="name"></label>
+        <label>Email <input name="email" type="email" required autocomplete="email"></label>
+        <label>Password <input name="password" type="password" required autocomplete="current-password">
+          <small id="pwHint" hidden>8+ characters, at least one letter and one digit.</small></label>
+        <button type="submit" id="authSubmit">Log in</button>
+      </form>
+    </section>
+
+    <div id="app" hidden>
+      <section>
+        <h2>Diagnostic centers</h2>
+        <div id="centers" class="grid"></div>
+      </section>
+      <section>
+        <h2>My bookings</h2>
+        <div id="bookings"></div>
+      </section>
+    </div>
+  </main>
+  <div id="toast" role="status"></div>
+  <script src="app.js"></script>
+</body>
+</html>
